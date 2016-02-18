@@ -9,12 +9,6 @@ function init() {
     CSRF = $('#csrf').val();
     $cards = $vocabList.find('.vocab-card');
 
-
-// im no longer imported at top of file.
-// seems flexbox is adjusting okay and we don't need this anymore
-// keeping it for a few commits then feel free to blow away the function
-//    if(im.greaterThan('md')) adjustCardHeight($cards);
-
     // if user has deeplinked from summary or elsewhere let's draw attention to the card
     let specificVocab = (window.location.href.match(/.*vocabulary\/\d+\/(\#.+)/) || [])[1];
     if (specificVocab) $(specificVocab).addClass('-standout');
@@ -28,16 +22,6 @@ function init() {
 function toggleVocabExpand(event) {
   event.preventDefault();
   $(this).closest('.vocab-card').toggleClass('-expanded');
-}
-
-// force really tall cards to layout horizontal
-function adjustCardHeight($list) {
-  $list.each((i, el) => {
-    let $text = $(el).find('.meaning').text();
-    if($text.length >= 70) {
-      $(el).css('flex', '2 1 60%');
-    }
-  });
 }
 
 function handleIconClick(event) {
@@ -59,8 +43,7 @@ function toggleClasses($icon, $card) {
 }
 
 const api = {
-  init,
-  adjustCardHeight,
+  init
 };
 
 export default api;

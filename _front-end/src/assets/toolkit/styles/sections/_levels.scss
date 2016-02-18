@@ -7,6 +7,15 @@
     > .section-heading {
       padding-left: $unit-xs / 2;
       padding-right: $unit-xs / 2;
+      .btn {
+        float: right;
+        font-size: 20px;
+        transition: background-color .3s ease-out;
+        background-color: $grey-light;
+        &:hover {
+          background-color: $grey-dark;
+        }
+      }
     }
   }
 

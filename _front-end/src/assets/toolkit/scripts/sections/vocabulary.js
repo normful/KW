@@ -13,6 +13,8 @@ let CSRF,
 function init() {
   $levelList = $('.level-list');
 
+  $('#unlockAll').click(unlockAll);
+
   // if container element exists on current page
   if($levelList.length) {
 
@@ -28,8 +30,8 @@ function init() {
   }
 }
 
-function handleLockClick(event) {
-  event.preventDefault();
+function handleLockClick(ev) {
+  ev.preventDefault();
 
   $icon = $(this);
   $card = $icon.closest(".level-card");
@@ -43,11 +45,23 @@ function handleLockClick(event) {
   }
 }
 
+function unlockAll(ev) {
+  console.log('unlocking all');
+
+  $.post("/kw/unlockall/", { csrfmiddlewaretoken: CSRF })
+    .done(res => {
+      notie.alert(1, res, 8);
+      refreshReviews({ forceGet: true });
+      simpleStorage.set('recentlyRefreshed', true, {TTL: 30000});
+    })
+   .fail(res => handleAjaxFail(res, 'all', 'unlock'));
+}
+
 function unLockLevel() {
   $icon.removeClass("i-unlock i-unlocked").addClass('-loading');
 
   $.post("/kw/levelunlock/", {level: level, csrfmiddlewaretoken: CSRF})
-   .done(res => {
+    .done(res => {
       notie.alert(1, res, 8);
 
       $icon.removeClass("-loading").addClass('i-unlocked').attr('title', 'Relock');
@@ -65,7 +79,7 @@ function reLockLevel() {
   $icon.removeClass("i-unlock i-unlocked").addClass('-loading');
 
   $.post("/kw/levellock/", {level: level, csrfmiddlewaretoken: CSRF})
-   .done(res => {
+    .done(res => {
 
       let currentLevelMsg = `<br/> We noticed that you just locked your current level. <br/>Newly unlocked vocab on WaniKani will no longer be added to your reviews.<br/> You can toggle <b>Follow WaniKani</b> back on in the <a href="/kw/settings"><b>Settings page</b></a>.`;
 
