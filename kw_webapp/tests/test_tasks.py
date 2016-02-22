@@ -90,7 +90,7 @@ class TestTasks(TestCase):
                       content_type='application/json')
 
         sync_unlocked_vocab_with_wk(self.user)
-        self.assertListEqual(self.review.synonyms_list(), ["kitten", "large rat"])
+        self.assertListEqual(self.review.meaning_synonyms_list(), ["kitten", "large rat"])
 
     def test_building_unlock_all_string_works(self):
         sample_level = constants.LEVEL_MAX

@@ -53,7 +53,7 @@ class TestModels(TestCase):
     def test_removing_synonym_by_lookup_works(self):
         remove_text = "minou"
         self.review.remove_synonym(remove_text)
-        self.assertNotIn(remove_text, self.review.synonyms_list())
+        self.assertNotIn(remove_text, self.review.meaning_synonyms_list())
 
     def test_removing_nonexistent_synonym_fails(self):
         remove_text = "un chien"
@@ -92,7 +92,7 @@ class TestModels(TestCase):
 
         review.meaningsynonym_set.get_or_create(text="kitty")
 
-        self.assertIn("kitty", review.synonyms_string())
+        self.assertIn("kitty", review.meaning_synonyms_string())
 
     def test_get_all_readings_returns_original_and_added_readings(self):
         self.vocabulary.reading_set.create(kana="what", character="ars", level=5)

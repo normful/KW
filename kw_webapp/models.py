@@ -161,17 +161,17 @@ class UserSpecific(models.Model):
     def can_be_managed_by(self, user):
         return self.user == user or user.is_superuser
 
-    def synonyms_list(self):
+    def meaning_synonyms_list(self):
         return [synonym.text for synonym in self.meaningsynonym_set.all()]
 
-    def synonyms_string(self):
+    def meaning_synonyms_string(self):
         return ", ".join([synonym.text for synonym in self.meaningsynonym_set.all()])
 
     def remove_synonym(self, text):
         self.meaningsynonym_set.remove(MeaningSynonym.objects.get(text=text))
 
     def answer_synonyms(self):
-        return [synonym.kana for synonym in self.answersynonym_set.all()]
+        return [(synonym.kana, synonym.character) for synonym in self.answersynonym_set.all()]
 
     def add_answer_synonym(self, kana, character):
         synonym, created = self.answersynonym_set.get_or_create(kana=kana, character=character)

@@ -1,0 +1,43 @@
+{{ vocabulary.meaning }}
+{% for reading in vocabulary.reading_set.all %}
+    {{ reading.kana }}
+    {{ reading.character }}
+    {{ reading.level }}
+
+
+{% endfor %}
+
+{% comment %}
+This is how you access the user's specific review information
+{% endcomment %}
+{{ review.last_studied }}
+{{ review.needs_review }}
+{{ review.unlock_date }}
+{{ review.burned }}
+{{ review.wanikani_burned }}
+{{ review.hidden }}
+{{ review.wanikani_srs }}
+{{ review.wanikani_srs_numeric }}
+{{ review.incorrect }}
+{{ review.streak }}
+{{ review.correct }}
+{{ review.next_review_date }}
+
+{% comment %}This is how you access the synonyms the user has punched in on wanikani. i.e, english meaning synonyms.{% endcomment %}
+{% for meaning_synonym in review.meaningsynonym_set.all %}
+    {{ meaning_synonym.text }}
+{% endfor %}
+
+{% comment %}Alternatively for meaning synonyms, if you want a comma-delimited string, or (the latter) a list {% endcomment %}
+{{ review.meaning_synonyms_string }}
+{{ review.meaning_synonyms_list }}
+
+
+{% comment %}This is how you access Answer Synonyms{% endcomment %}
+{% for synonym in review.answersynonym_set.all %}
+    {{ synonym.kana }}
+    {{ synonym.character }}
+{% endfor %}
+
+{% comment %}Alternatively for answer synonyms! This will return a list of (kana,character) tuples{% endcomment %}
+{{ review.answer_synonyms }}

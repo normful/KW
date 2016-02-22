@@ -15,6 +15,7 @@ from kw_webapp.tasks import build_API_sync_string_for_user_for_levels
 from kw_webapp.tests import sample_api_responses
 from kw_webapp.tests.utils import create_user, create_userspecific, create_profile, create_reading
 from kw_webapp.tests.utils import create_vocab
+from kw_webapp.views import DetailVocab
 
 
 class TestViews(TestCase):
@@ -207,7 +208,7 @@ class TestViews(TestCase):
         self.review.refresh_from_db()
         found_synonym = self.review.answersynonym_set.first()
 
-        self.assertTrue(synonym_kana in self.review.answer_synonyms())
+        self.assertTrue((synonym_kana, synonym_kanji) in self.review.answer_synonyms())
         self.assertEqual(found_synonym.kana, synonym_kana)
         self.assertEqual(found_synonym.character, synonym_kanji)
 
@@ -242,3 +243,16 @@ class TestViews(TestCase):
 
         self.assertAlmostEqual(correct_time, self.review.next_review_date, delta=timedelta(seconds=1))
 
+    def test_navigating_to_vocab_detail_page_shows_vocabulary_information(self):
+        response = self.client.get(reverse("kw:vocab_detail", args=(self.vocabulary.id,)))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, self.vocabulary.meaning)
+
+
+    def test_navigating_to_vocabulary_detail_page_when_you_have_no_review_returns_403(self):
+        unreviewable_vocab = create_vocab("Anime Tropes")
+
+        response = self.client.get(reverse("kw:vocab_detail", args=(unreviewable_vocab.id,)))
+
+        self.assertEqual(response.status_code, 403)

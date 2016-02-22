@@ -3,18 +3,19 @@ from datetime import timedelta
 import simplejson as simplejson
 from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
 from django.http import HttpResponseRedirect, HttpResponse, HttpResponseForbidden, HttpResponseNotFound, JsonResponse, \
     Http404
 from django.shortcuts import get_object_or_404, render_to_response, render
 from django.core.urlresolvers import reverse_lazy
 from django.contrib.auth import logout
 from django.utils.decorators import method_decorator
-from django.views.generic import TemplateView, ListView, View
+from django.views.generic import TemplateView, ListView, View, DetailView
 from django.views.generic.edit import FormView, UpdateView
 from rest_framework import viewsets
 from kw_webapp import constants
 from kw_webapp.decorators.ValidApiRequired import valid_api_required
-from kw_webapp.models import Profile, UserSpecific, Announcement, AnswerSynonym
+from kw_webapp.models import Profile, UserSpecific, Announcement, AnswerSynonym, Vocabulary
 from kw_webapp.forms import UserCreateForm, SettingsForm
 from django.utils import timezone
 from kw_webapp.serializers import UserSerializer, ReviewSerializer, ProfileSerializer
@@ -240,6 +241,25 @@ class SyncRequested(View):
         return super(SyncRequested, self).dispatch(*args, **kwargs)
 
 
+class DetailVocab(DetailView):
+    model = Vocabulary
+    template_name = "kw_webapp/detailvocab.html"
+    context_object_name = "vocabulary"
+
+    def get_context_data(self, **kwargs):
+        context = super(DetailVocab, self).get_context_data(**kwargs)
+        vocab = context["vocabulary"]
+
+        try:
+            review = UserSpecific.objects.get(user=self.request.user, vocabulary=vocab)
+        except UserSpecific.DoesNotExist:
+            raise PermissionDenied
+        else:
+            context['review'] = review
+
+        return context
+
+
 class UnlockLevels(TemplateView):
     template_name = "kw_webapp/vocabulary.html"
 
@@ -391,7 +411,7 @@ class RecordAnswer(View):
 
         data_logger.info(
                 "{}|{}|{}|{}".format(review.user.username, review.vocabulary.meaning, user_correct, review.streak,
-                                     review.synonyms_string()))
+                                     review.meaning_synonyms_string()))
         if user_correct:
             if not previously_wrong:
                 review.correct += 1
