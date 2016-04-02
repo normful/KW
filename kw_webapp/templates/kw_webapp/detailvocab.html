@@ -1,43 +1,65 @@
-{{ vocabulary.meaning }}
-{% for reading in vocabulary.reading_set.all %}
-    {{ reading.kana }}
-    {{ reading.character }}
-    {{ reading.level }}
+<section>
+  <h4>Vocab data</h4>
+  <ul>
+    <li>
+      vocabulary.meaning: {{ vocabulary.meaning }}
+    </li>
+    {% for reading in vocabulary.reading_set.all %}
+        <li>reading.kana: {{ reading.kana }}</li>
+        <li>reading.character: {{ reading.character }}</li>
+        <li>reading.level: {{ reading.level }}</li>
+    {% endfor %}
+  </ul>
+</section>
 
+<section>
+  {% comment %}
+  This is how you access the user's specific review information
+  {% endcomment %}
+  <h4>User specific review info</h4>
+  <ul>
+    <li>review.last_studied: {{ review.last_studied }}</li>
+    <li>review.needs_review: {{ review.needs_review }}</li>
+    <li>review.unlock_date: {{ review.unlock_date }}</li>
+    <li>review.burned: {{ review.burned }}</li>
+    <li>review.wanikani_burned: {{ review.wanikani_burned }}</li>
+    <li>review.hidden: {{ review.hidden }}</li>
+    <li>review.wanikani_srs: {{ review.wanikani_srs }}</li>
+    <li>review.wanikani_srs_numeric: {{ review.wanikani_srs_numeric }}</li>
+    <li>review.incorrect: {{ review.incorrect }}</li>
+    <li>review.streak: {{ review.streak }}</li>
+    <li>review.correct: {{ review.correct }}</li>
+    <li>review.next_review_date: {{ review.next_review_date }}</li>
+  </ul>
+</section>
 
-{% endfor %}
+<section>
+  {% comment %}This is how you access the synonyms the user has punched in on wanikani. i.e, english meaning synonyms.{% endcomment %}
+  <h4>User specific meaning synonyms</h4>
+  <h5>as loop</h5>
+  <ul>
+    {% for meaning_synonym in review.meaningsynonym_set.all %}
+      <li>{{ meaning_synonym.text }}</li>
+    {% endfor %}
+  </ul>
+  {% comment %}Alternatively for meaning synonyms, if you want a comma-delimited string, or (the latter) a list {% endcomment %}
+  <h5>as comma delimited string</h5>
+  <p>{{ review.meaning_synonyms_string }}</p>
+  <h5>as list</h5>
+  <p>{{ review.meaning_synonyms_list }}</p>
+</section>
 
-{% comment %}
-This is how you access the user's specific review information
-{% endcomment %}
-{{ review.last_studied }}
-{{ review.needs_review }}
-{{ review.unlock_date }}
-{{ review.burned }}
-{{ review.wanikani_burned }}
-{{ review.hidden }}
-{{ review.wanikani_srs }}
-{{ review.wanikani_srs_numeric }}
-{{ review.incorrect }}
-{{ review.streak }}
-{{ review.correct }}
-{{ review.next_review_date }}
-
-{% comment %}This is how you access the synonyms the user has punched in on wanikani. i.e, english meaning synonyms.{% endcomment %}
-{% for meaning_synonym in review.meaningsynonym_set.all %}
-    {{ meaning_synonym.text }}
-{% endfor %}
-
-{% comment %}Alternatively for meaning synonyms, if you want a comma-delimited string, or (the latter) a list {% endcomment %}
-{{ review.meaning_synonyms_string }}
-{{ review.meaning_synonyms_list }}
-
-
-{% comment %}This is how you access Answer Synonyms{% endcomment %}
-{% for synonym in review.answersynonym_set.all %}
-    {{ synonym.kana }}
-    {{ synonym.character }}
-{% endfor %}
-
-{% comment %}Alternatively for answer synonyms! This will return a list of (kana,character) tuples{% endcomment %}
-{{ review.answer_synonyms }}
+<section>
+  <h4>User specific answer synonyms</h4>
+  {% comment %}This is how you access Answer Synonyms{% endcomment %}
+  <h5>as loop</h5>
+  <ul>
+    {% for synonym in review.answersynonym_set.all %}
+      <li>synonym.kana: {{ synonym.kana }}</li>
+      <li>synonym.character: {{ synonym.character }}</li>
+    {% endfor %}
+  </ul>
+  {% comment %}Alternatively for answer synonyms! This will return a list of (kana,character) tuples{% endcomment %}
+  <h5>as kana/character pair list</h5>
+  <p>{{ review.answer_synonyms }}</p>
+</section>
