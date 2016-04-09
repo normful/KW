@@ -244,7 +244,7 @@ class TestViews(TestCase):
         self.assertAlmostEqual(correct_time, self.review.next_review_date, delta=timedelta(seconds=1))
 
     def test_navigating_to_vocab_detail_page_shows_vocabulary_information(self):
-        response = self.client.get(reverse("kw:vocab_detail", args=(self.vocabulary.id,)))
+        response = self.client.get(reverse("kw:vocab_detail", args=(self.vocabulary.reading_set.first().character,)))
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, self.vocabulary.meaning)
@@ -252,7 +252,8 @@ class TestViews(TestCase):
 
     def test_navigating_to_vocabulary_detail_page_when_you_have_no_review_returns_403(self):
         unreviewable_vocab = create_vocab("Anime Tropes")
+        create_reading(unreviewable_vocab, "test!", "whatever", 1)
 
-        response = self.client.get(reverse("kw:vocab_detail", args=(unreviewable_vocab.id,)))
+        response = self.client.get(reverse("kw:vocab_detail", args=(unreviewable_vocab.reading_set.first().character,)))
 
         self.assertEqual(response.status_code, 403)

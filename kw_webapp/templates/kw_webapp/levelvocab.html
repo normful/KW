@@ -16,7 +16,7 @@
       {% for review in reviews %}
       <li id="vocab{{ review.vocabulary.id }}" class="vocab-card {% if review.hidden %}-locked -unlockable {% endif %}" data-vocab-id="{{ review.id }}">
       {% comment %}@Subversity check it out, heres how to reference the detail page {% endcomment %}
-      <a href={% url 'kw:vocab_detail' review.vocabulary.id %}> DETAIL PAGE </a>
+      <a href={{ review.get_absolute_url }}> DETAIL PAGE </a>
         <div class="vocab-base">
           <dl class="readingset">
             <span class="ja">

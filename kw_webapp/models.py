@@ -4,6 +4,8 @@ from itertools import chain
 from datetime import timedelta
 
 import math
+
+from django.core.urlresolvers import reverse
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.contrib.auth.models import User
@@ -120,7 +122,8 @@ class Vocabulary(models.Model):
         return self.reading_set.filter(level__lte=level)
 
     def get_absolute_url(self):
-        return "https://www.wanikani.com/vocabulary/{}/".format(self.reading_set.all()[0])
+        print(self.reading_set.first())
+        return reverse("kw:vocab_detail", kwargs={"kanji": self.reading_set.first().character})
 
     def __str__(self):
         return self.meaning
@@ -209,6 +212,8 @@ class UserSpecific(models.Model):
                                                                               self.needs_review,
                                                                               self.unlock_date)
 
+    def get_absolute_url(self):
+        return reverse("kw:vocab_detail", kwargs={"kanji": self.vocabulary.reading_set.first().character})
 
 class AnswerSynonym(models.Model):
     character = models.CharField(max_length=255, null=True)

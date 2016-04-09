@@ -245,6 +245,8 @@ class DetailVocab(DetailView):
     model = Vocabulary
     template_name = "kw_webapp/detailvocab.html"
     context_object_name = "vocabulary"
+    slug_field = "reading__character" #Ultra Jank way of referencing a related object via slug.
+    slug_url_kwarg = "kanji"
 
     def get_context_data(self, **kwargs):
         context = super(DetailVocab, self).get_context_data(**kwargs)
