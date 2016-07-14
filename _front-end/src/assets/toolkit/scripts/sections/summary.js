@@ -1,14 +1,15 @@
-import refreshReviews from '../components/refreshReviews';
+function init() {
+  if (/summary/.test(window.location.pathname)) {
+    const pMatch = $('.correctPercent').text().match(/^\d*/);
+    const percent = pMatch.length && pMatch[0];
 
-let init = function() {
-	// are we on summary page? clear reviews count because server doesn't update in header =/
-	if (/summary/.test(window.location.pathname)) {
-    $("#navReviewCount").text('');
-	}
+    setTimeout(() => $('.percentage-bar .percentage').css('width', `${percent}%`), 200);
+  }
 }
 
 const api = {
-	init,
+  init,
 };
 
 export default api;
+

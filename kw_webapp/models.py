@@ -10,7 +10,6 @@ from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.contrib.auth.models import User
 from django.utils import timezone
-from django.utils.datetime_safe import strftime
 
 from kw_webapp import constants
 from kw_webapp.constants import TWITTER_USERNAME_REGEX, HTTP_S_REGEX
@@ -41,7 +40,7 @@ class Level(models.Model):
 class Profile(models.Model):
     user = models.OneToOneField(User)
     api_key = models.CharField(max_length=255)
-    api_valid = models.BooleanField(default=False)
+    api_valid = models.BooleanField(default=True)
     gravatar = models.CharField(max_length=255)
     about = models.CharField(max_length=255, default="")
     website = models.CharField(max_length=255, default="N/A", null=True)
@@ -50,6 +49,7 @@ class Profile(models.Model):
     posts_count = models.PositiveIntegerField(default=0)
     title = models.CharField(max_length=255, default="Turtles", null=True)
     join_date = models.DateField(auto_now_add=True, null=True)
+    last_wanikani_sync_date = models.DateTimeField(auto_now_add=True, null=True)
     level = models.PositiveIntegerField(null=True, validators=[
         MinValueValidator(constants.LEVEL_MIN),
         MaxValueValidator(constants.LEVEL_MAX),
@@ -58,8 +58,9 @@ class Profile(models.Model):
     # General user-changeable settings
     unlocked_levels = models.ManyToManyField(Level)
     follow_me = models.BooleanField(default=True)
-    auto_expand_answer_on_failure = models.BooleanField(default=False)
     auto_advance_on_success = models.BooleanField(default=False)
+    auto_expand_answer_on_success = models.BooleanField(default=False)
+    auto_expand_answer_on_failure = models.BooleanField(default=False)
     only_review_burned = models.BooleanField(default=False)
 
     # Vacation Settings
@@ -75,8 +76,7 @@ class Profile(models.Model):
         elif TWITTER_USERNAME_REGEX.match(twitter_account):
             self.twitter = "@{}".format(twitter_account)
         else:
-            logger.warning("WK returned a funky twitter account name: {},  for user:{} ".format(twitter_account,
-                                                                                                self.user.username))
+            logger.warning("WK returned a funky twitter account name: {},  for user:{} ".format(twitter_account, self.user.username))
 
         self.save()
 
@@ -122,7 +122,6 @@ class Vocabulary(models.Model):
         return self.reading_set.filter(level__lte=level)
 
     def get_absolute_url(self):
-        print(self.reading_set.first())
         return reverse("kw:vocab_detail", kwargs={"kanji": self.reading_set.first().character})
 
     def __str__(self):
@@ -133,7 +132,7 @@ class Reading(models.Model):
     vocabulary = models.ForeignKey(Vocabulary)
     character = models.CharField(max_length=255)
     kana = models.CharField(max_length=255)
-    level = models.PositiveIntegerField(validators=[
+    level = models.PositiveIntegerField(null=True, validators=[
         MinValueValidator(constants.LEVEL_MIN),
         MaxValueValidator(constants.LEVEL_MAX),
     ])
@@ -185,6 +184,11 @@ class UserSpecific(models.Model):
         self._round_review_time_up()
         self.save()
 
+    def set_next_review_time_based_on_last_studied(self):
+        self.next_review_date = self.last_studied + timedelta(hours=constants.SRS_TIMES[self.streak])
+        self._round_review_time_up()
+        self.save()
+
     def _round_review_time_up(self):
         original_date = self.next_review_date
         round_to = constants.REVIEW_ROUNDING_TIME.total_seconds()
@@ -205,13 +209,6 @@ class UserSpecific(models.Model):
     def __str__(self):
         return "{} - {} - c:{} - i:{} - s:{} - ls:{} - nr:{} - uld:{}".format(self.vocabulary.meaning,
                                                                               self.user.username,
-                                                                              self.correct,
-                                                                              self.incorrect,
-                                                                              self.streak,
-                                                                              self.last_studied,
-                                                                              self.needs_review,
-                                                                              self.unlock_date)
-
     def get_absolute_url(self):
         return reverse("kw:vocab_detail", kwargs={"kanji": self.vocabulary.reading_set.first().character})
 

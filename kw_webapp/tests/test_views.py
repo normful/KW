@@ -134,6 +134,8 @@ class TestViews(TestCase):
 
     @mock.patch("kw_webapp.views.unlock_eligible_vocab_from_levels", side_effect=lambda x, y: [1, 0])
     def test_unlocking_a_level_unlocks_all_vocab(self, unlock_call):
+        self.user.profile.api_valid = True
+        self.user.profile.save()
         response = self.client.post("/kw/levelunlock/", data={"level": 5})
         self.assertContains(response, "1 vocabulary unlocked")
 
@@ -154,6 +156,8 @@ class TestViews(TestCase):
                       status=200,
                       content_type='application/json')
 
+        self.user.profile.api_valid = True
+        self.user.profile.save()
         self.client.post(reverse("kw:unlock_all"))
 
         self.assertListEqual(sorted(self.user.profile.unlocked_levels_list()), [1, 2, 3, 4, 5])
@@ -257,3 +261,9 @@ class TestViews(TestCase):
         response = self.client.get(reverse("kw:vocab_detail", args=(unreviewable_vocab.reading_set.first().character,)))
 
         self.assertEqual(response.status_code, 403)
+
+    def test_early_termination_redirects_to_home_when_no_reviews_were_done(self):
+
+        response = self.client.post(reverse("kw:summary"), follow=True)
+
+        self.assertRedirects(response, reverse("kw:home"))

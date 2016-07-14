@@ -60,14 +60,44 @@
 	}
 }
 
+<<<<<<< HEAD
 @function plusMinus($n) {
 	@return if(random(2) > 1, -#{$n}, +#{$n});
 }
+=======
+@keyframes srsRankDown {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, -3.5em, 0);
+  }
+
+  30% {
+    opacity: .1;
+  }
+
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@function plusMinus($n) {
+  @return if(random(2) > 1, -#{$n}, +#{$n});
+}
+
+@function calcDrift($L, $D) {
+  @return if($L > 50, #{-$D}vw, #{$D}vw);
+}
+
+@mixin turtle-animation($i, $imgSize, $opacity, $duration, $delay, $rotate, $drift) {
+  $left: random(100);
+>>>>>>> dev
 
 @function calcDrift($L, $D) {
 	@return if($L > 50, #{-$D}vw, #{$D}vw);
 }
 
+<<<<<<< HEAD
 @mixin turtle-animation($i, $imgSize, $opacity, $duration, $delay, $rotate, $drift) {
 	$left: random(100);
 
@@ -95,5 +125,22 @@
 								 rotate(#{plusMinus($rotate)}deg)
 		}
 	}
+=======
+  @keyframes turtle-float-#{$i} {
+    33% {
+      // not DRY intentionally so we get different random() values with sass
+      opacity: if(random(2) > 1, #{$opacity - random(40) / 100}, #{$opacity + random(40) / 100});
+    }
+    66% {
+      opacity: if(random(2) > 1, #{$opacity - random(40) / 100}, #{$opacity + random(40) / 100}) ;
+    }
+    100% {
+      opacity: if(random(2) > 1, #{$opacity - random(40) / 100}, #{$opacity + random(40) / 100}) ;
+      transform: translateX(calcDrift($left, $drift))
+                 translateY(calc(-102vh - #{$imgSize}px))
+                 rotate(#{plusMinus($rotate)}deg)
+    }
+  }
+>>>>>>> dev
 }
 

@@ -1,34 +1,37 @@
-from datetime import timedelta
-
 import simplejson as simplejson
+import logging
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.http import HttpResponseRedirect, HttpResponse, HttpResponseForbidden, HttpResponseNotFound, JsonResponse, \
     Http404
-from django.shortcuts import get_object_or_404, render_to_response, render
+from django.shortcuts import get_object_or_404, render
 from django.core.urlresolvers import reverse_lazy
-from django.contrib.auth import logout
-from django.utils.decorators import method_decorator
-from django.views.generic import TemplateView, ListView, View, DetailView
+from django.views.generic import DetailView
+from django.contrib.auth import logout, authenticate, login
+from django.views.generic import TemplateView, ListView, View
 from django.views.generic.edit import FormView, UpdateView
+from django.utils import timezone
+
 from rest_framework import viewsets
+
 from kw_webapp import constants
-from kw_webapp.decorators.ValidApiRequired import valid_api_required
+from kw_webapp.mixins import ValidApiRequiredMixin
 from kw_webapp.models import Profile, UserSpecific, Announcement, AnswerSynonym, Vocabulary
 from kw_webapp.forms import UserCreateForm, SettingsForm
-from django.utils import timezone
 from kw_webapp.serializers import UserSerializer, ReviewSerializer, ProfileSerializer
 from kw_webapp.tasks import all_srs, unlock_eligible_vocab_from_levels, lock_level_for_user, \
-    unlock_all_possible_levels_for_user, sync_user_profile_with_wk, sync_with_wk, get_wanikani_level_by_api_key, get_users_current_reviews, \
+    unlock_all_possible_levels_for_user, sync_user_profile_with_wk, sync_with_wk, get_wanikani_level_by_api_key, \
+    get_users_current_reviews, \
     user_returns_from_vacation
-import logging
+from kw_webapp.wanikani import exceptions
 
 logger = logging.getLogger("kw.views")
 data_logger = logging.getLogger("kw.review_data")
 
 
-class Settings(UpdateView):
+class Settings(LoginRequiredMixin, UpdateView):
     template_name = "kw_webapp/settings.html"
     form_class = SettingsForm
     model = Profile
@@ -45,11 +48,16 @@ class Settings(UpdateView):
         self.object.api_valid = True
         user = User.objects.get(username=self.request.user.username)
         if not was_following and self.object.follow_me:  # if user swaps from non-following to following, sync them.
-            self.object.level = get_wanikani_level_by_api_key(self.object.api_key)
-            self.object.unlocked_levels.get_or_create(level=self.object.level)
-            self.object.save()
-            unlock_eligible_vocab_from_levels(self.object.user, self.object.level)
-            sync_user_profile_with_wk(user)
+            try:
+                self.object.level = get_wanikani_level_by_api_key(self.object.api_key)
+                self.object.unlocked_levels.get_or_create(level=self.object.level)
+                self.object.save()
+                unlock_eligible_vocab_from_levels(self.object.user, self.object.level)
+                sync_user_profile_with_wk(user)
+            except exceptions.InvalidWaniKaniKey:
+                user.profile.api_valid = False
+                user.profile.save()
+
         else:
             self.object.save()
 
@@ -58,7 +66,6 @@ class Settings(UpdateView):
         elif not was_on_vacation and self.object.on_vacation:
             user.profile.vacation_date = timezone.now()
             user.profile.save()
-
 
         logger.info("Saved Settings changes for {}.".format(self.request.user.username))
         return HttpResponseRedirect(reverse_lazy("kw:settings"))
@@ -69,21 +76,13 @@ class Settings(UpdateView):
         context['form'] = form
         return self.render_to_response(context)
 
-    @method_decorator(login_required)
-    def dispatch(self, *args, **kwargs):
-        return super(Settings, self).dispatch(*args, **kwargs)
 
-
-class UserViewSet(viewsets.ModelViewSet):
+class UserViewSet(LoginRequiredMixin, viewsets.ModelViewSet):
     queryset = User.objects.all().order_by('-date_joined')
     serializer_class = UserSerializer
 
-    @method_decorator(login_required)
-    def dispatch(self, *args, **kwargs):
-        return super(UserViewSet, self).dispatch(*args, **kwargs)
 
-
-class ReviewViewSet(viewsets.ModelViewSet):
+class ReviewViewSet(LoginRequiredMixin, viewsets.ModelViewSet):
     queryset = UserSpecific.objects.all()
     serializer_class = ReviewSerializer
     pagination_class = None
@@ -93,12 +92,8 @@ class ReviewViewSet(viewsets.ModelViewSet):
         queryset = UserSpecific.objects.filter(user=user, needs_review=True)
         return queryset
 
-    @method_decorator(login_required)
-    def dispatch(self, *args, **kwargs):
-        return super(ReviewViewSet, self).dispatch(*args, **kwargs)
 
-
-class ProfileViewSet(viewsets.ModelViewSet):
+class ProfileViewSet(LoginRequiredMixin, viewsets.ModelViewSet):
     queryset = Profile.objects.all()
     serializer_class = ProfileSerializer
 
@@ -107,33 +102,21 @@ class ProfileViewSet(viewsets.ModelViewSet):
         queryset = Profile.objects.filter(user=user)
         return queryset
 
-    @method_decorator(login_required)
-    def dispatch(self, *args, **kwargs):
-        return super(ProfileViewSet, self).dispatch(*args, **kwargs)
 
-
-class About(TemplateView):
+class About(LoginRequiredMixin, TemplateView):
     template_name = "kw_webapp/about.html"
 
-    @method_decorator(login_required)
-    def dispatch(self, *args, **kwargs):
-        return super(About, self).dispatch(*args, **kwargs)
 
-
-class Dashboard(TemplateView):
+class Dashboard(LoginRequiredMixin, TemplateView):
     template_name = "kw_webapp/home.html"
 
     def get_context_data(self, **kwargs):
         context = super(Dashboard, self).get_context_data()
-        context['announcements'] = Announcement.objects.all().order_by('-pub_date')[:2]
+        context['announcements'] = Announcement.objects.all().order_by('-pub_date')[:5]
         return context
 
-    @method_decorator(login_required)
-    def dispatch(self, *args, **kwargs):
-        return super(Dashboard, self).dispatch(*args, **kwargs)
 
-
-class ForceSRSCheck(View):
+class ForceSRSCheck(LoginRequiredMixin, View):
     """
     temporary view that allows users to force an SRS update check on their account. Any thing that needs reviewing will
     added to the review queue.
@@ -148,12 +131,8 @@ class ForceSRSCheck(View):
                                                                                                  new_review_count or 0))
         return HttpResponse(new_review_count)
 
-    @method_decorator(login_required)
-    def dispatch(self, *args, **kwargs):
-        return super(ForceSRSCheck, self).dispatch(*args, **kwargs)
 
-
-class LockRequested(View):
+class LockRequested(LoginRequiredMixin, View):
     """
     AJAX-only view for locking an entire level at a time. Blows away the user's review information for every
     """
@@ -170,7 +149,7 @@ class LockRequested(View):
         return HttpResponse("{} items removed from your study queue.".format(removed_count))
 
 
-class UnlockAll(View):
+class UnlockAll(LoginRequiredMixin, ValidApiRequiredMixin, View):
     """
     Ajax-only view unlocking ALL previous levels. The nuclear option, as it were.
     """
@@ -190,12 +169,8 @@ class UnlockAll(View):
         else:
             return HttpResponse("Everything has already been unlocked!")
 
-    @method_decorator(login_required)
-    def dispatch(self, *args, **kwargs):
-        return super(UnlockAll, self).dispatch(*args, **kwargs)
 
-
-class UnlockRequested(View):
+class UnlockRequested(LoginRequiredMixin, ValidApiRequiredMixin, View):
     """
     Ajax-only view meant for unlocking previous levels. Post params: Level.
     """
@@ -214,15 +189,12 @@ class UnlockRequested(View):
             return HttpResponse("{} vocabulary unlocked".format(ul_count))
         else:
             return HttpResponse(
-                    "{} vocabulary unlocked.<br/>You still have {} upcoming vocabulary to unlock on WaniKani for your current level.".format(
-                        ul_count,
-                        l_count))
+                "{} vocabulary unlocked.<br/>You still have {} upcoming vocabulary to unlock on WaniKani for your current level.".format(
+                    ul_count,
+                    l_count))
 
-    @method_decorator(login_required)
-    def dispatch(self, *args, **kwargs):
-        return super(UnlockRequested, self).dispatch(*args, **kwargs)
 
-class SyncRequested(View):
+class SyncRequested(LoginRequiredMixin, View):
     """
     Ajax view so that the user can request a sync of their profile and vocabulary
     """
@@ -236,12 +208,9 @@ class SyncRequested(View):
                              "new_review_count": new_review_count,
                              "new_synonym_count": new_synonym_count})
 
-    @method_decorator(login_required)
-    def dispatch(self, *args, **kwargs):
-        return super(SyncRequested, self).dispatch(*args, **kwargs)
 
 
-class DetailVocab(DetailView):
+class DetailVocab(LoginRequiredMixin, DetailView):
     model = Vocabulary
     template_name = "kw_webapp/detailvocab.html"
     context_object_name = "vocabulary"
@@ -262,7 +231,7 @@ class DetailVocab(DetailView):
         return context
 
 
-class UnlockLevels(TemplateView):
+class UnlockLevels(LoginRequiredMixin, ValidApiRequiredMixin, TemplateView):
     template_name = "kw_webapp/vocabulary.html"
 
     def get_context_data(self, **kwargs):
@@ -279,13 +248,8 @@ class UnlockLevels(TemplateView):
         context["levels"] = level_status
         return context
 
-    @method_decorator(login_required)
-    @method_decorator(valid_api_required)
-    def dispatch(self, *args, **kwargs):
-        return super(UnlockLevels, self).dispatch(*args, **kwargs)
 
-
-class SRSVocab(TemplateView):
+class SRSVocab(LoginRequiredMixin, TemplateView):
     template_name = "kw_webapp/levelvocab.html"
 
     def get_context_data(self, **kwargs):
@@ -298,12 +262,14 @@ class SRSVocab(TemplateView):
         related_levels = constants.KANIWANI_SRS_LEVELS[requested_srs_level]
 
         user = self.request.user
-        vocab = UserSpecific.objects.filter(user=user, streak__in=related_levels).distinct().order_by("vocabulary__meaning")
+        vocab = UserSpecific.objects.filter(user=user, streak__in=related_levels).distinct().order_by(
+            "vocabulary__meaning")
         context['reviews'] = vocab
         context['selected_level'] = requested_srs_level
         return context
 
-class LevelVocab(TemplateView):
+
+class LevelVocab(LoginRequiredMixin, TemplateView):
     template_name = "kw_webapp/levelvocab.html"
 
     def get_context_data(self, **kwargs):
@@ -315,10 +281,6 @@ class LevelVocab(TemplateView):
         context['selected_level'] = level
         return context
 
-    @method_decorator(login_required)
-    def dispatch(self, *args, **kwargs):
-        return super(LevelVocab, self).dispatch(*args, **kwargs)
-
 
 class Error404(View):
     def get(self, request, *args, **kwargs):
@@ -326,7 +288,7 @@ class Error404(View):
         return HttpResponseNotFound(response)
 
 
-class ToggleVocabLockStatus(View):
+class ToggleVocabLockStatus(LoginRequiredMixin, View):
     """
     Ajax-only view that essentially flips the hidden status of a single vocabulary.
     """
@@ -341,13 +303,8 @@ class ToggleVocabLockStatus(View):
         else:
             return HttpResponseForbidden()
 
-    @method_decorator(login_required)
-    def dispatch(self, *args, **kwargs):
-        return super(ToggleVocabLockStatus, self).dispatch(*args, **kwargs)
 
-
-class RemoveSynonym(View):
-
+class RemoveSynonym(LoginRequiredMixin, View):
     def get(self, request, *args, **kwargs):
         return HttpResponseForbidden()
 
@@ -359,15 +316,7 @@ class RemoveSynonym(View):
         return HttpResponse(response_string)
 
 
-    @method_decorator(login_required)
-    def dispatch(self, request, *args, **kwargs):
-        return super(RemoveSynonym, self).dispatch(request, *args, **kwargs)
-
-
-
-
-class AddSynonym(View):
-
+class AddSynonym(LoginRequiredMixin, View):
     def get(self, request, *args, **kwargs):
         return HttpResponseForbidden()
 
@@ -384,14 +333,8 @@ class AddSynonym(View):
 
         return JsonResponse(synonym.as_dict())
 
-    @method_decorator(login_required)
-    def dispatch(self, request, *args, **kwargs):
-        return super(AddSynonym, self).dispatch(request, *args, **kwargs)
 
-
-
-
-class RecordAnswer(View):
+class RecordAnswer(LoginRequiredMixin, View):
     """
     Called via Ajax in reviews.js. Takes a UserSpecific object, and either True or False. Updates the DB in realtime
     so that if the session crashes the review at least gets partially done.
@@ -412,8 +355,8 @@ class RecordAnswer(View):
             return HttpResponseForbidden("You can't modify that object!")
 
         data_logger.info(
-                "{}|{}|{}|{}".format(review.user.username, review.vocabulary.meaning, user_correct, review.streak,
-                                     review.meaning_synonyms_string()))
+            "{}|{}|{}|{}".format(review.user.username, review.vocabulary.meaning, user_correct, review.streak,
+                                 review.synonyms_string()))
         if user_correct:
             if not previously_wrong:
                 review.correct += 1
@@ -437,16 +380,11 @@ class RecordAnswer(View):
             return HttpResponse("Incorrect!")
         else:
             logger.error(
-                    "{} managed to post some bad data to RecordAnswer: {}".format(request.user.username, request.POST))
+                "{} managed to post some bad data to RecordAnswer: {}".format(request.user.username, request.POST))
             return HttpResponse("Error!")
-        return HttpResponse("Error!")
-
-    @method_decorator(login_required)
-    def dispatch(self, *args, **kwargs):
-        return super(RecordAnswer, self).dispatch(*args, **kwargs)
 
 
-class Review(ListView):
+class Review(LoginRequiredMixin, ListView):
     template_name = "kw_webapp/review.html"
     model = UserSpecific
 
@@ -464,12 +402,8 @@ class Review(ListView):
         print(res.all())
         return res
 
-    @method_decorator(login_required)
-    def dispatch(self, *args, **kwargs):
-        return super(Review, self).dispatch(*args, **kwargs)
 
-
-class ReviewSummary(TemplateView):
+class ReviewSummary(LoginRequiredMixin, TemplateView):
     template_name = "kw_webapp/reviewsummary.html"
 
     def get(self, request, *args, **kwargs):
@@ -478,9 +412,16 @@ class ReviewSummary(TemplateView):
 
     def post(self, request, *args, **kwargs):
         logger.info("{} navigated to review summary page.".format(request.user.username))
+
         all_reviews = request.POST
+
+        if len(all_reviews) <= 1:
+            #The post data is only populated by the CSRF token. No reviews were done
+            return HttpResponseRedirect(reverse_lazy("kw:home"))
+
         correct = []
         incorrect = []
+
         for review_id in all_reviews:
             try:
                 if int(all_reviews[review_id]) > 0:
@@ -495,30 +436,15 @@ class ReviewSummary(TemplateView):
             except ValueError as e:
                 # this is here to catch the CSRF token essentially.
                 logging.debug("Un-parseable: {}".format(review_id))
-        # wow what a shit-ass hack. TODO figure out the proper way to render templates off a post.
-        return render_to_response(self.template_name, {"correct": correct,
-                                                       "incorrect": incorrect,
-                                                       "correct_count": len(correct),
-                                                       "incorrect_count": len(incorrect),
-                                                       "review_count": len(correct) + len(incorrect),
-                                                       "request": self.request},
-                                  # HOLY MOTHER OF GOD I NEED TO FIX THIS
-                                  )
 
-    @method_decorator(login_required)
-    def dispatch(self, *args, **kwargs):
-        return super(ReviewSummary, self).dispatch(*args, **kwargs)
+        return render(request, self.template_name, {"correct": correct,
+                                                    "incorrect": incorrect,
 
-
-class Logout(TemplateView):
+class Logout(LoginRequiredMixin, TemplateView):
     def get(self, request, *args, **kwargs):
         logger.info("{} has requested a logout.".format(request.user.username))
         logout(request=request)
         return HttpResponseRedirect(reverse_lazy("kw:home"))
-
-    @method_decorator(login_required)
-    def dispatch(self, *args, **kwargs):
-        return super(Logout, self).dispatch(*args, **kwargs)
 
 
 class Register(FormView):
@@ -531,7 +457,15 @@ class Register(FormView):
         logger.info("New User Created: {}, with API key {}.".format(user.username, form.cleaned_data['api_key']))
         Profile.objects.create(
                 user=user, api_key=form.cleaned_data['api_key'], level=1)
+
+        sync_with_wk(user)
+        user = authenticate(username=form.cleaned_data['username'], password=form.cleaned_data['password1'])
+        login(self.request, user)
         return HttpResponseRedirect(reverse_lazy("kw:home"))
+
+
+class Sent(TemplateView):
+    template_name = "contact_form/contact_form_sent.html"
 
 
 @login_required()
