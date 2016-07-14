@@ -356,7 +356,7 @@ class RecordAnswer(LoginRequiredMixin, View):
 
         data_logger.info(
             "{}|{}|{}|{}".format(review.user.username, review.vocabulary.meaning, user_correct, review.streak,
-                                 review.synonyms_string()))
+                                 review.meaning_synonyms_string()))
         if user_correct:
             if not previously_wrong:
                 review.correct += 1
@@ -439,6 +439,10 @@ class ReviewSummary(LoginRequiredMixin, TemplateView):
 
         return render(request, self.template_name, {"correct": correct,
                                                     "incorrect": incorrect,
+                                                    "correct_count": len(correct),
+                                                    "incorrect_count": len(incorrect),
+                                                    "review_session_count": len(correct) + len(incorrect)})
+
 
 class Logout(LoginRequiredMixin, TemplateView):
     def get(self, request, *args, **kwargs):

@@ -208,7 +208,8 @@ class UserSpecific(models.Model):
 
     def __str__(self):
         return "{} - {} - c:{} - i:{} - s:{} - ls:{} - nr:{} - uld:{}".format(self.vocabulary.meaning,
-                                                                              self.user.username,
+                                                                              self.user.username, self.correct, self.incorrect,
+                                                                              self.streak, self.last_studied, self.needs_review, self.unlock_date)
     def get_absolute_url(self):
         return reverse("kw:vocab_detail", kwargs={"kanji": self.vocabulary.reading_set.first().character})
 
