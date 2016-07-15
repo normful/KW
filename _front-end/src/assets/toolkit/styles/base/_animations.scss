@@ -76,4 +76,40 @@
   }
 }
 
+@function plusMinus($n) {
+  @return if(random(2) > 1, -#{$n}, +#{$n});
+}
+
+@function calcDrift($L, $D) {
+  @return if($L > 50, #{-$D}vw, #{$D}vw);
+}
+
+@mixin turtle-animation($i, $imgSize, $opacity, $duration, $delay, $rotate, $drift) {
+  $left: random(100);
+
+  opacity: $opacity;
+  width: #{$imgSize}px;
+  height: #{$imgSize}px;
+  left: calc(#{$left}% - #{$imgSize}px);;
+  bottom: -#{$imgSize}px;
+  animation-name: turtle-float-#{$i};
+  animation-duration: #{$duration}s;
+  animation-delay: #{$delay}s;
+
+  @keyframes turtle-float-#{$i} {
+    33% {
+      // not DRY intentionally so we get different random() values with sass
+      opacity: if(random(2) > 1, #{$opacity - random(40) / 100}, #{$opacity + random(40) / 100});
+    }
+    66% {
+      opacity: if(random(2) > 1, #{$opacity - random(40) / 100}, #{$opacity + random(40) / 100}) ;
+    }
+    100% {
+      opacity: if(random(2) > 1, #{$opacity - random(40) / 100}, #{$opacity + random(40) / 100}) ;
+      transform: translateX(calcDrift($left, $drift))
+                 translateY(calc(-102vh - #{$imgSize}px))
+                 rotate(#{plusMinus($rotate)}deg)
+    }
+  }
+}
 
